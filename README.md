@@ -115,6 +115,6 @@ Find Best Gap: Searches for the longest sequence of points with maximum distance
 Steering Calculation: Targets the center of the selected gap.
 
 ### Author
-Marcos Emmanuel Balón García Escuela Superior Politécnica del Litoral (ESPOL)
+Marcos Emmanuel Balón García - Escuela Superior Politécnica del Litoral (ESPOL)
 
 Autonomous Robotics Project - ROS 2
