@@ -37,7 +37,7 @@ cd ~/autodrive_ws
 colcon build --packages-select gap_follow autodrive_msgs
 source install/setup.bash
 ```
-### Estructura del paquete ROS 2
+### ROS 2 package structure
 ```bash
 autodrive_ws/
 └── src/
