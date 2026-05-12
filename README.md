@@ -34,7 +34,7 @@ rosdep install --from-paths src --ignore-src -r -y
 ### 1.2 Build your workspace:
 ```bash
 cd ~/autodrive_ws
-colcon build --packages-select gap_follow autodrive_msgs
+colcon build --packages-select gap_follow
 source install/setup.bash
 ```
 ### ROS 2 package structure
@@ -78,7 +78,7 @@ The system integrates advanced safety logic:
 
 Spatial Anomaly (LiDAR): Identifies unmapped obstacles or sudden changes in the environment.
 
-State Anomaly (Telemetry): The /telemetry topic is monitored. If the acceleration command (throttle) is greater than zero but the speed reported by the encoders is zero, the system detects a stall or loss of traction and activates an emergency stop protocol.
+State Anomaly (Perception-based): The system monitors the correlation between control commands and environment changes. If a throttle command is active but the LiDAR scan remains static for a prolonged period, the system infers a collision or stall and triggers an emergency stop protocol.
 
 ### Project Execution
 Results:https://drive.google.com/file/d/1-0ueHXua01EAlZdTATlNUiUPNk7Jf6PK/view?usp=sharing
@@ -98,9 +98,9 @@ The node subscribes to:
 
 And publishes:
 
-/autodrive/f1tenth_1/steering_command (ackermann_msgs/msg/AckermannDriveStamped)
+/autodrive/f1tenth_1/steering_command (std_msgs/msg/Float32)
 
-/autodrive/f1tenth_1/throttle_command
+/autodrive/f1tenth_1/throttle_command (std_msgs/msg/Float32)
 
 Processing Logic:
 
@@ -114,7 +114,51 @@ Find Best Gap: Searches for the longest sequence of points with maximum distance
 
 Steering Calculation: Targets the center of the selected gap.
 
-### Author
-Marcos Emmanuel Balón García - Escuela Superior Politécnica del Litoral (ESPOL)
+## Technical Code Walkthrough (reactive_node.cpp)
+### 1. Perception Filtering (The "Focus" Phase)
+```bash
+float view_angle = 70.0 * M_PI / 180.0;
+// ... (indexing logic)
+if (ranges[i] > 4.5) ranges[i] = 4.5;
+```
+Explanation: We narrow the LiDAR's field of view to a 70° frontal arc. This prevents the car from being distracted by walls behind it or in its blind spots. We also cap the distance at 4.5 meters to focus on immediate obstacles rather than distant track features.
 
-Autonomous Robotics Project - ROS 2
+### 2. The Safety Bubble (Collision Mitigation)
+```bash
+int bubble_radius = 40; 
+for (int i = -bubble_radius; i <= bubble_radius; i++) {
+    ranges[closest_index + i] = 0.0;
+}
+```
+Explanation: After locating the closest obstacle point, the algorithm "draws" a virtual circular mask of zeros around it. This Safety Bubble accounts for the physical width of the F1TENTH chassis, ensuring the path planning logic treats the entire area near an obstacle as impassable.
+
+### 3. Gap Identification (Path Selection)
+```bash
+if (ranges[i] > 2.0) { // Deep space threshold
+    // ... logic to find the largest contiguous sequence
+}
+```
+Explanation: The algorithm scans the filtered array for the "Deepest Gap"—the longest sequence of consecutive LiDAR beams that report a clear path of at least 2.0 meters. By targeting the center of this gap, the car naturally gravitates toward the most open area of the track.
+
+### 4. Adaptive Control & Perception-Based Anomaly Detection
+```bash
+if (std::abs(angle) < 0.1) {
+    throttle_msg.data = 0.15; // Straightaway speed
+} else {
+    throttle_msg.data = 0.10; // Cornering speed
+}
+```
+Explanation: * Dynamic Throttle: The node implements a basic speed-to-steering mapping. It reduces speed during sharp turns to prevent understeer and increases it on straight sections.
+
+Stall Detection: Since external telemetry was decoupled for standalone stability, the system uses a Spatial Anomaly counter. If the car commands movement but the LiDAR environment remains static for more than 20 frames, it triggers an emergency stop to prevent motor burnout.
+
+
+
+
+## 🎓 Author
+**Marcos Emmanuel Balón García**
+*Mechatronics Engineering Student*
+Escuela Superior Politécnica del Litoral (ESPOL)
+Guayaquil, Ecuador
+
+Developed as part of the Mechatronics Engineering curriculum at ESPOL.
